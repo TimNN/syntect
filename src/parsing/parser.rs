@@ -178,7 +178,7 @@ impl ParseState {
                         match_pat.regex.as_ref().unwrap()
                     };
                     // TODO don't panic on regex error
-                    let matched = regex.captures_from_pos(line, *start).unwrap();
+                    let matched = debug_timing::time(&match_pat.regex_str, || regex.captures_from_pos(line, *start)).unwrap();
                     if let Some(captures) = matched {
                         let match_start = captures.pos(0).unwrap().0;
                         let match_end = captures.pos(0).unwrap().1;
@@ -376,6 +376,50 @@ impl ParseState {
             });
         }
         true
+    }
+}
+
+#[cfg(feature = "debug-regex-timing")]
+pub mod debug_timing {
+    extern crate chrono;
+    extern crate chashmap;
+    use self::chrono::Duration;
+    use self::chashmap::CHashMap;
+    use std::io::{self, Write};
+
+    lazy_static! {
+        static ref TIMINGS: CHashMap<String, Vec<Duration>> = CHashMap::new();
+    }
+
+    // FIXME: make key a &str, once CHashMap supports that
+    pub fn time<R, F: FnOnce() -> R>(key: &String, f: F) -> R {
+        let mut ret = None;
+        let d = Duration::span(|| ret = Some(f()));
+
+        match TIMINGS.get_mut(key) {
+            Some(mut val) => val.push(d),
+            None => TIMINGS.upsert(key.to_owned(), || vec![d], |val| val.push(d)),
+        }
+
+        ret.unwrap()
+    }
+
+    pub fn clear() {
+        TIMINGS.clear();
+    }
+
+    pub fn dump_cum() {
+        let mut data = TIMINGS.clone().into_iter().map(|(k, v)| {
+            let cum = v.iter().fold(Duration::zero(), |a, &b| a + b);
+            let avg = cum / v.len() as i32;
+            (k, cum, avg)
+        }).collect::<Vec<_>>();
+        data.sort_by_key(|&(_, _, avg)| avg);
+
+        let mut err = io::stderr();
+        for &(ref k, cum, avg) in &data {
+            writeln!(err, "CUM: {} AVG: {} REGEX: {}", cum, avg, k).unwrap();
+        }
     }
 }
 

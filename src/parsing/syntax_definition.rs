@@ -236,6 +236,10 @@ impl MatchPattern {
     }
 
     fn compile_regex(&mut self) {
+        if self.regex_str == "(?=[\\S\\z])" {
+            self.regex_str = "(?=[\\S])".to_owned();
+        }
+
         // TODO don't panic on invalid regex
         println!("compiling {:?}", self.regex_str);
         let compiled = fancy_regex::Regex::new(&self.regex_str).unwrap();

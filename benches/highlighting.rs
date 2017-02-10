@@ -4,7 +4,7 @@ extern crate test;
 extern crate syntect;
 use test::Bencher;
 
-use syntect::parsing::{SyntaxSet, SyntaxDefinition, ScopeStack};
+use syntect::parsing::{SyntaxSet, SyntaxDefinition, ScopeStack, debug_timing};
 use syntect::highlighting::{ThemeSet, Theme};
 use syntect::easy::HighlightLines;
 use std::str::FromStr;
@@ -30,9 +30,14 @@ fn highlight_file(b: &mut Bencher, path_s: &str) {
     f.read_to_string(&mut s).unwrap();
 
     do_highlight(&s, syntax, &ts.themes["base16-ocean.dark"]);
+
+    debug_timing::clear();
+
     b.iter(|| {
         do_highlight(&s, syntax, &ts.themes["base16-ocean.dark"]);
     });
+
+    debug_timing::dump_cum();
 }
 
 #[bench]
