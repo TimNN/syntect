@@ -24,9 +24,14 @@ rustc-serialize = "0.3"
 bincode = "0.6"
 flate2 = "0.2"
 fnv = "1.0.2"
+regex = "*"
+fancy-regex = { git = "https://github.com/trishume/fancy-regex.git" }
+chrono = { version = "0.3", optional =  true }
+chashmap = { version = "2.0", optional = true }
 
 [features]
 static-onig = ["onig/static-libonig"]
+debug-regex-timing = ["chrono", "chashmap"]
 
 # [profile.release]
 # debug = true

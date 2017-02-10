@@ -180,11 +180,12 @@ impl ParseState {
                     } else {
                         match_pat.regex.as_ref().unwrap()
                     };
-                    let matched = regex.search_with_options(line,
+
+                    let matched = debug_timing::time(&match_pat.regex_str, || regex.search_with_options(line,
                                                             *start,
                                                             line.len(),
                                                             onig::SEARCH_OPTION_NONE,
-                                                            Some(regions));
+                                                            Some(regions)));
                     if let Some(match_start) = matched {
                         let match_end = regions.pos(0).unwrap().1;
                         // this is necessary to avoid infinite looping on dumb patterns
@@ -380,6 +381,50 @@ impl ParseState {
             });
         }
         true
+    }
+}
+
+#[cfg(feature = "debug-regex-timing")]
+pub mod debug_timing {
+    extern crate chrono;
+    extern crate chashmap;
+    use self::chrono::Duration;
+    use self::chashmap::CHashMap;
+    use std::io::{self, Write};
+
+    lazy_static! {
+        static ref TIMINGS: CHashMap<String, Vec<Duration>> = CHashMap::new();
+    }
+
+    // FIXME: make key a &str, once CHashMap supports that
+    pub fn time<R, F: FnOnce() -> R>(key: &String, f: F) -> R {
+        let mut ret = None;
+        let d = Duration::span(|| ret = Some(f()));
+
+        match TIMINGS.get_mut(key) {
+            Some(mut val) => val.push(d),
+            None => TIMINGS.upsert(key.to_owned(), || vec![d], |val| val.push(d)),
+        }
+
+        ret.unwrap()
+    }
+
+    pub fn clear() {
+        TIMINGS.clear();
+    }
+
+    pub fn dump_cum() {
+        let mut data = TIMINGS.clone().into_iter().map(|(k, v)| {
+            let cum = v.iter().fold(Duration::zero(), |a, &b| a + b);
+            let avg = cum / v.len() as i32;
+            (k, cum, avg)
+        }).collect::<Vec<_>>();
+        data.sort_by_key(|&(_, _, avg)| avg);
+
+        let mut err = io::stderr();
+        for &(ref k, cum, avg) in &data {
+            writeln!(err, "CUM: {} AVG: {} REGEX: {}", cum, avg, k).unwrap();
+        }
     }
 }
 

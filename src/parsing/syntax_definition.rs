@@ -225,6 +225,10 @@ impl MatchPattern {
     }
 
     fn compile_regex(&mut self) {
+        if self.regex_str == "(?=[\\S\\z])" {
+            self.regex_str = "(?=[\\S])".to_owned();
+        }
+
         // TODO don't panic on invalid regex
         let compiled = Regex::with_options(&self.regex_str,
                                            onig::REGEX_OPTION_CAPTURE_GROUP,
